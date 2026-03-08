@@ -7,12 +7,22 @@ let db = null;
  */
 export const connectDatabase = () => {
   try {
+
+    if (db) {
+      return db;
+    }
+
     db = SQLite.openDatabase("scurio.db");
+
     console.log("✅ Database connected");
+
     return db;
+
   } catch (error) {
+
     console.error("❌ Database connection error:", error);
     throw error;
+
   }
 };
 
@@ -20,13 +30,21 @@ export const connectDatabase = () => {
  * Initialize database tables
  */
 export const initializeDatabase = () => {
+
   if (!db) {
-    throw new Error("Database not connected");
+    throw new Error("❌ Database not connected. Call connectDatabase() first.");
   }
 
   db.transaction(
+
     (tx) => {
 
+      // Enable foreign keys
+      tx.executeSql(`PRAGMA foreign_keys = ON;`);
+
+      /**
+       * Folders Table
+       */
       tx.executeSql(
         `CREATE TABLE IF NOT EXISTS folders (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,13 +61,17 @@ export const initializeDatabase = () => {
         }
       );
 
+      /**
+       * Notes Table
+       */
       tx.executeSql(
         `CREATE TABLE IF NOT EXISTS notes (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           folder_id INTEGER,
           title TEXT,
           content TEXT,
-          created_at TEXT
+          created_at TEXT,
+          FOREIGN KEY(folder_id) REFERENCES folders(id) ON DELETE CASCADE
         );`,
         [],
         () => console.log("✅ notes table ready"),
@@ -59,13 +81,17 @@ export const initializeDatabase = () => {
         }
       );
 
+      /**
+       * Files Table
+       */
       tx.executeSql(
         `CREATE TABLE IF NOT EXISTS files (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           folder_id INTEGER,
           file_name TEXT,
           file_path TEXT,
-          created_at TEXT
+          created_at TEXT,
+          FOREIGN KEY(folder_id) REFERENCES folders(id) ON DELETE CASCADE
         );`,
         [],
         () => console.log("✅ files table ready"),
@@ -76,42 +102,82 @@ export const initializeDatabase = () => {
       );
 
     },
+
     (error) => {
-      console.error("❌ transaction error:", error);
+      console.error("❌ Database transaction error:", error);
     },
+
     () => {
       console.log("✅ Database initialized successfully");
     }
+
   );
+
 };
 
 /**
- * Execute query safely
+ * Execute SQL query safely
  */
 export const executeQuery = (query, params = []) => {
 
   return new Promise((resolve, reject) => {
 
     if (!db) {
-      reject(new Error("Database not connected"));
+      reject(new Error("❌ Database not connected"));
       return;
     }
 
-    db.transaction((tx) => {
+    db.transaction(
 
-      tx.executeSql(
-        query,
-        params,
-        (_, result) => resolve(result),
-        (_, error) => {
-          console.error("❌ Query failed:", error);
-          reject(error);
-          return false;
-        }
-      );
+      (tx) => {
 
-    });
+        tx.executeSql(
+          query,
+          params,
+
+          (_, result) => {
+            resolve(result);
+          },
+
+          (_, error) => {
+            console.error("❌ Query failed:", error);
+            reject(error);
+            return false;
+          }
+
+        );
+
+      },
+
+      (error) => {
+        console.error("❌ Transaction error:", error);
+        reject(error);
+      }
+
+    );
 
   });
+
+};
+
+/**
+ * Close database connection (optional)
+ */
+export const closeDatabase = () => {
+
+  if (!db) return;
+
+  try {
+
+    db._db.close();
+    db = null;
+
+    console.log("✅ Database closed");
+
+  } catch (error) {
+
+    console.error("❌ Error closing database:", error);
+
+  }
 
 };

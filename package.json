@@ -2,6 +2,7 @@
   "dependencies": {
     "crypto-js": "^4.2.0",
     "expo-secure-store": "^55.0.8",
-    "expo-sqlite": "^55.0.10"
+    "expo-sqlite": "^55.0.10",
+    "firebase": "^12.10.0"
   }
 }

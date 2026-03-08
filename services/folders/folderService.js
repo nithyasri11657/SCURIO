@@ -1,5 +1,5 @@
 import { executeQuery } from "../database/databaseService.js";
-import { encryptData } from "../security/encryptionService.js";
+import { encryptData, decryptData } from "../security/encryptionService.js";
 
 /**
  * Create a new folder
@@ -8,13 +8,13 @@ export const createFolder = async (name, lockType = "none", password = null) => 
 
   try {
 
-    if (!name) {
+    if (!name || name.trim() === "") {
       throw new Error("Folder name is required");
     }
 
     let passwordHash = null;
 
-    if (password) {
+    if (lockType !== "none" && password) {
       passwordHash = encryptData(password);
     }
 
@@ -24,22 +24,23 @@ export const createFolder = async (name, lockType = "none", password = null) => 
     `;
 
     const result = await executeQuery(query, [
-      name,
+      name.trim(),
       lockType,
       passwordHash
     ]);
 
-    console.log("Folder created:", name);
+    console.log("✅ Folder created:", name);
 
     return result;
 
   } catch (error) {
 
-    console.error("Create folder error:", error);
+    console.error("❌ Create folder error:", error);
     throw error;
 
   }
 };
+
 
 /**
  * Get all folders
@@ -59,11 +60,41 @@ export const getFolders = async () => {
 
   } catch (error) {
 
-    console.error("Get folders error:", error);
+    console.error("❌ Get folders error:", error);
     throw error;
 
   }
 };
+
+
+/**
+ * Get single folder by ID
+ */
+export const getFolderById = async (folderId) => {
+
+  try {
+
+    if (!folderId) {
+      throw new Error("Folder ID required");
+    }
+
+    const query = `
+      SELECT * FROM folders
+      WHERE id = ?
+    `;
+
+    const result = await executeQuery(query, [folderId]);
+
+    return result.rows._array[0];
+
+  } catch (error) {
+
+    console.error("❌ Get folder error:", error);
+    throw error;
+
+  }
+};
+
 
 /**
  * Delete folder
@@ -83,13 +114,43 @@ export const deleteFolder = async (folderId) => {
 
     const result = await executeQuery(query, [folderId]);
 
-    console.log("Folder deleted:", folderId);
+    console.log("🗑️ Folder deleted:", folderId);
 
     return result;
 
   } catch (error) {
 
-    console.error("Delete folder error:", error);
+    console.error("❌ Delete folder error:", error);
+    throw error;
+
+  }
+};
+
+
+/**
+ * Verify folder password
+ */
+export const verifyFolderPassword = async (folderId, inputPassword) => {
+
+  try {
+
+    const folder = await getFolderById(folderId);
+
+    if (!folder) {
+      throw new Error("Folder not found");
+    }
+
+    if (!folder.password_hash) {
+      return true;
+    }
+
+    const decryptedPassword = decryptData(folder.password_hash);
+
+    return decryptedPassword === inputPassword;
+
+  } catch (error) {
+
+    console.error("❌ Folder password verification error:", error);
     throw error;
 
   }
